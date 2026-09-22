@@ -1,0 +1,23 @@
+{
+  "manifest_version": 3,
+  "name": "暮光起始页",
+  "version": "1.5.9",
+  "description": "Safari 风格的新标签页，使用插件自己的收藏、分组、站点图标和背景。",
+  "permissions": [
+    "storage",
+    "unlimitedStorage"
+  ],
+  "host_permissions": [
+    "http://*/*",
+    "https://*/*"
+  ],
+  "chrome_url_overrides": {
+    "newtab": "newtab.html"
+  },
+  "icons": {
+    "16": "assets/icon-16.png",
+    "32": "assets/icon-32.png",
+    "48": "assets/icon-48.png",
+    "128": "assets/icon-128.png"
+  }
+}

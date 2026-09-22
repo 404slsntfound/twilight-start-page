@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark" />
+    <title>暮光起始页</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div id="wallpaper" class="wallpaper" aria-hidden="true"></div>
+
+    <main class="page-shell">
+      <section id="collection-view" class="collection-view" aria-labelledby="section-title">
+        <header class="collection-heading">
+          <button id="collection-back" class="collection-back" type="button" aria-label="返回个人收藏" hidden data-icon="back-filled"></button>
+          <h1 id="section-title">个人收藏</h1>
+        </header>
+        <div id="collection-grid" class="collection-grid" role="list"></div>
+        <div id="empty-state" class="empty-state" hidden>
+          <span class="empty-icon" data-icon="sparkles"></span>
+          <h2>这里还没有收藏</h2>
+          <p>使用右下角的“编辑”添加书签或分组。</p>
+        </div>
+      </section>
+    </main>
+
+    <button id="edit-toggle" class="edit-toggle material-button" type="button"><span>编辑</span></button>
+
+    <aside id="editor-panel" class="editor-panel material-panel" aria-label="编辑起始页" aria-hidden="true">
+      <div class="editor-topline">
+        <strong>起始页</strong>
+        <button id="editor-close" class="round-button" type="button" aria-label="关闭编辑面板" data-icon="close"></button>
+      </div>
+      <button class="editor-row" type="button" data-action="add-bookmark"><span class="row-icon" data-icon="plus"></span><span id="add-bookmark-label">添加书签</span></button>
+      <button class="editor-row" type="button" data-action="add-group"><span class="row-icon" data-icon="folder-plus"></span><span>新建分组</span></button>
+      <button class="editor-row" type="button" data-action="refresh-icons"><span class="row-icon" data-icon="rotate"></span><span>刷新网站图标</span></button>
+
+      <div class="editor-divider"></div>
+      <div class="editor-label"><span data-icon="image"></span><span>背景图像</span></div>
+      <div class="background-picker">
+        <label class="background-card upload-card" title="上传背景"><input id="background-upload" type="file" accept="image/jpeg,image/png,image/webp,image/avif" /><span data-icon="plus"></span></label>
+        <button id="background-reset" class="background-card current-background" type="button" title="恢复默认背景"><span id="background-preview" class="background-preview"></span><span class="background-clear" data-icon="close-small"></span></button>
+      </div>
+
+      <div class="editor-divider"></div>
+      <button class="editor-row compact-row" type="button" data-action="export"><span data-icon="download"></span><span>导出书签 HTML</span></button>
+      <label class="editor-row compact-row file-row"><input id="import-data" type="file" accept=".html,.htm,text/html" /><span data-icon="upload"></span><span>导入书签 HTML</span></label>
+      <button class="editor-row compact-row danger-row" type="button" data-action="reset"><span data-icon="trash"></span><span>恢复初始内容</span></button>
+      <p class="privacy-note">支持 Safari 与 Chrome 书签 HTML；导入时合并收藏，并按网址跳过重复项。</p>
+    </aside>
+
+    <div id="form-layer" class="popover-layer" hidden>
+      <section class="item-popover material-panel" role="dialog" aria-modal="true" aria-labelledby="form-title">
+        <form id="item-form">
+          <div class="popover-heading"><h2 id="form-title">添加书签</h2><button id="form-close" class="round-button" type="button" aria-label="关闭" data-icon="close"></button></div>
+          <div id="bookmark-fields">
+            <label class="field"><span>名称</span><input id="item-title" maxlength="32" required placeholder="网站名称" /></label>
+            <label class="field"><span>网址</span><input id="item-url" type="text" required spellcheck="false" placeholder="https://example.com" /></label>
+            <label class="field"><span>位置</span><select id="item-parent"></select></label>
+            <p class="icon-note"><span data-icon="wand"></span>优先获取 Safari 风格的 Apple Touch Icon</p>
+          </div>
+          <div id="group-fields" hidden><label class="field"><span>分组名称</span><input id="group-name" maxlength="24" placeholder="例如：阅读清单" /></label></div>
+          <div class="form-actions"><button id="form-cancel" class="soft-button" type="button">取消</button><button class="primary-button" type="submit">完成</button></div>
+        </form>
+      </section>
+    </div>
+
+    <div id="icon-layer" class="popover-layer" hidden>
+      <section class="icon-popover material-panel" role="dialog" aria-modal="true" aria-labelledby="icon-form-title">
+        <div class="popover-heading">
+          <h2 id="icon-form-title">编辑书签图标</h2>
+          <button id="icon-form-close" class="round-button" type="button" aria-label="关闭" data-icon="close"></button>
+        </div>
+        <p class="icon-dialog-note">选择这个书签使用的图标来源</p>
+        <div class="icon-source-list">
+          <div class="icon-source-card">
+            <input id="icon-source-safari" type="radio" name="icon-source" value="safari" checked />
+            <label class="icon-source-main" for="icon-source-safari">
+              <span class="icon-source-preview safari-preview"><img id="icon-safari-preview" class="icon-preview-image" alt="" /></span>
+              <span class="icon-source-copy"><strong>Safari 默认</strong><small>仅从网站官方页面获取 Touch Icon、Manifest 或 favicon</small></span>
+            </label>
+          </div>
+          <div class="icon-source-card">
+            <input id="icon-source-google" type="radio" name="icon-source" value="google" />
+            <label class="icon-source-main" for="icon-source-google">
+              <span class="icon-source-preview google-preview"><img id="icon-google-preview" class="icon-preview-image" alt="" /></span>
+              <span class="icon-source-copy"><strong>Google 获取</strong><small>仅使用 Google 官方 favicon 服务获取</small></span>
+            </label>
+          </div>
+          <div class="icon-source-card">
+            <input id="icon-source-custom" type="radio" name="icon-source" value="custom" />
+            <label class="icon-source-main" for="icon-source-custom">
+              <span id="icon-custom-preview" class="icon-source-preview custom-preview"><span data-icon="image"></span></span>
+              <span class="icon-source-copy"><strong>自己上传</strong><small>支持 SVG、PNG、JPEG、WebP 和 AVIF</small></span>
+            </label>
+            <input id="icon-upload" class="icon-file-input" type="file" accept=".svg,.png,.jpg,.jpeg,.webp,.avif,image/svg+xml,image/png,image/jpeg,image/webp,image/avif" />
+            <label class="icon-upload-button" for="icon-upload">选择图片</label>
+          </div>
+        </div>
+        <div class="form-actions icon-form-actions">
+          <button id="icon-form-cancel" class="soft-button" type="button">取消</button>
+          <button id="icon-form-save" class="primary-button" type="button">使用此图标</button>
+        </div>
+      </section>
+    </div>
+
+    <form id="address-popover" class="address-popover material-panel" hidden>
+      <input id="address-input" type="text" aria-label="书签地址" spellcheck="false" />
+      <button class="address-done" type="submit">完成</button>
+    </form>
+
+    <div id="confirm-overlay" class="confirm-overlay" hidden>
+      <section class="confirm-dialog material-panel" role="alertdialog" aria-modal="true" aria-labelledby="confirm-title">
+        <span class="confirm-icon" data-icon="trash"></span>
+        <h2 id="confirm-title">确认删除？</h2>
+        <p id="confirm-message"></p>
+        <div class="form-actions"><button id="confirm-cancel" class="soft-button" type="button">取消</button><button id="confirm-ok" class="danger-button" type="button">删除</button></div>
+      </section>
+    </div>
+
+    <div id="context-menu" class="context-menu" role="menu" hidden></div>
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <script src="safari-bookmarks.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
