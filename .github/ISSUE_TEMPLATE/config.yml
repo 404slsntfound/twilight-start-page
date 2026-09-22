@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Privacy notice / 隐私说明
+    url: https://github.com/404slsntfound/twilight-start-page/blob/main/PRIVACY.md
+    about: 查看数据保存与网络访问说明 / Read how data and network access are handled
