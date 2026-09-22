@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "暮光起始页",
-  "version": "1.5.9",
+  "version": "1.5.10",
   "description": "Safari 风格的新标签页，使用插件自己的收藏、分组、站点图标和背景。",
   "permissions": [
     "storage",

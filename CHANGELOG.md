@@ -4,6 +4,13 @@
 
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.5.10] - 2026-09-23
+
+### 变更 / Changed
+
+- 将默认背景替换为高分辨率夕照海湾壁纸。
+- Replaced the default background with a high-resolution sunset bay wallpaper.
+
 ## [1.5.9] - 2026-09-22
 
 首个公开版本。 / First public release.
@@ -21,4 +28,5 @@ This project follows [Semantic Versioning](https://semver.org/).
 - Safari 与 Chrome 书签 HTML 导入导出。
 - Safari and Chrome bookmark HTML import and export.
 
+[1.5.10]: https://github.com/404slsntfound/twilight-start-page/releases/tag/v1.5.10
 [1.5.9]: https://github.com/404slsntfound/twilight-start-page/releases/tag/v1.5.9
