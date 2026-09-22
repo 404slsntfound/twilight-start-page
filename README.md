@@ -4,6 +4,9 @@
 
 A polished Safari-inspired new tab extension for Chrome, with its own local bookmarks, groups, website icons, and backgrounds.
 
+[![Chrome Extension](https://img.shields.io/badge/Chrome-Manifest%20V3-4285F4?logo=googlechrome&logoColor=white)](manifest.json)
+[![License: MIT](https://img.shields.io/badge/License-MIT-2f81f7.svg)](LICENSE)
+
 [简体中文](#简体中文) · [English](#english)
 
 ![暮光起始页主界面](docs/images/twilight-start-page.png)
