@@ -9,14 +9,18 @@
 以下数据保存在 Chrome 扩展存储中：
 
 - 用户创建或导入的书签与分组；
-- 自定义背景；
+- 当前背景、最近使用的 10 张自定义壁纸与壁纸收藏；
 - 用户上传的书签图标；
 - 从网站获取的网站图标缓存；
-- 界面设置与数据迁移版本。
+- 是否显示“最近打开”等界面设置与数据迁移版本。
+
+### 最近打开
+
+“最近打开”默认开启，可在编辑面板中关闭。开启时，扩展使用 Chrome 的历史记录接口在本机读取最近访问的网页，经网址去重后仅显示最近 8 项。读取结果仅用于当前起始页展示，不会写入扩展存储，也不会上传或共享。
 
 ### 网络访问
 
-扩展访问书签网站，只用于读取页面声明的 Touch Icon、Web App Manifest 和 favicon。用户主动选择 **Google 获取** 时，扩展会访问 Google 官方 favicon 服务。
+扩展访问书签或“最近打开”所列网站，只用于读取页面声明的 Touch Icon、Web App Manifest 和 favicon。用户主动选择 **Google 获取** 时，扩展会访问 Google 官方 favicon 服务。只有用户打开对应壁纸分类时，扩展才会访问 Microsoft Bing 或 Wallhaven 的公开接口获取壁纸列表；用户选用联网壁纸时，图片会下载、压缩并保存在本机扩展存储中。
 
 ### 不会进行的操作
 
@@ -39,14 +43,18 @@ Twilight Start Page is a local-first Chrome new tab extension.
 The following data is kept in Chrome extension storage:
 
 - bookmarks and groups created or imported by the user;
-- custom backgrounds;
+- the current background, the ten most recently used custom wallpapers, and wallpaper favorites;
 - bookmark icons uploaded by the user;
 - website icon cache;
-- interface settings and data migration versions.
+- interface settings, including whether **Recently Opened** is shown, and data migration versions.
+
+### Recently Opened
+
+**Recently Opened** is enabled by default and can be disabled in the edit panel. When enabled, the extension uses Chrome's history API locally, removes duplicate URLs, and displays only the eight most recently visited pages. These results are used only for the current start page and are neither saved to extension storage nor uploaded or shared.
 
 ### Network access
 
-The extension accesses bookmarked websites only to discover declared Touch Icons, Web App Manifest icons, and favicons. When the user explicitly selects **Google Fetch**, the extension contacts Google's official favicon service.
+The extension accesses bookmarked or recently opened websites only to discover declared Touch Icons, Web App Manifest icons, and favicons. When the user explicitly selects **Google Fetch**, the extension contacts Google's official favicon service. Microsoft Bing or Wallhaven public endpoints are contacted only after the user opens the corresponding wallpaper category. When an online wallpaper is selected, it is downloaded, compressed, and saved in local extension storage.
 
 ### What the extension does not do
 

@@ -22,6 +22,13 @@
           <h2>这里还没有收藏</h2>
           <p>使用右下角的“编辑”添加书签或分组。</p>
         </div>
+        <section id="recent-section" class="recent-section" aria-labelledby="recent-title">
+          <header class="recent-heading">
+            <h2 id="recent-title">最近打开</h2>
+          </header>
+          <div id="recent-grid" class="recent-grid" role="list"></div>
+          <p id="recent-empty" class="recent-empty" hidden>暂无最近打开的网页</p>
+        </section>
       </section>
     </main>
 
@@ -34,21 +41,56 @@
       </div>
       <button class="editor-row" type="button" data-action="add-bookmark"><span class="row-icon" data-icon="plus"></span><span id="add-bookmark-label">添加书签</span></button>
       <button class="editor-row" type="button" data-action="add-group"><span class="row-icon" data-icon="folder-plus"></span><span>新建分组</span></button>
-      <button class="editor-row" type="button" data-action="refresh-icons"><span class="row-icon" data-icon="rotate"></span><span>刷新网站图标</span></button>
+      <button class="editor-row" type="button" data-action="refresh-icons"><span class="row-icon" data-icon="rotate"></span><span>刷新图标</span></button>
+      <label class="editor-row editor-switch-row" for="show-recent">
+        <span class="row-icon" data-icon="history"></span>
+        <span class="editor-row-copy">最近打开</span>
+        <input id="show-recent" class="switch-input" type="checkbox" />
+        <span class="switch-control" aria-hidden="true"></span>
+      </label>
 
       <div class="editor-divider"></div>
       <div class="editor-label"><span data-icon="image"></span><span>背景图像</span></div>
       <div class="background-picker">
-        <label class="background-card upload-card" title="上传背景"><input id="background-upload" type="file" accept="image/jpeg,image/png,image/webp,image/avif" /><span data-icon="plus"></span></label>
+        <button id="wallpaper-open" class="background-card upload-card" type="button" title="打开壁纸库" aria-label="打开壁纸库"><span data-icon="plus"></span></button>
         <button id="background-reset" class="background-card current-background" type="button" title="恢复默认背景"><span id="background-preview" class="background-preview"></span><span class="background-clear" data-icon="close-small"></span></button>
       </div>
 
       <div class="editor-divider"></div>
-      <button class="editor-row compact-row" type="button" data-action="export"><span data-icon="download"></span><span>导出书签 HTML</span></button>
-      <label class="editor-row compact-row file-row"><input id="import-data" type="file" accept=".html,.htm,text/html" /><span data-icon="upload"></span><span>导入书签 HTML</span></label>
+      <button class="editor-row compact-row" type="button" data-action="export"><span data-icon="download"></span><span>导出书签</span></button>
+      <label class="editor-row compact-row file-row"><input id="import-data" type="file" accept=".html,.htm,text/html" /><span data-icon="upload"></span><span>导入书签</span></label>
       <button class="editor-row compact-row danger-row" type="button" data-action="reset"><span data-icon="trash"></span><span>恢复初始内容</span></button>
-      <p class="privacy-note">支持 Safari 与 Chrome 书签 HTML；导入时合并收藏，并按网址跳过重复项。</p>
+      <p class="privacy-note">支持 Safari 与 Chrome 书签文件；导入时合并收藏，并按网址跳过重复项。</p>
     </aside>
+
+    <div id="wallpaper-layer" class="wallpaper-layer" hidden>
+      <section class="wallpaper-library material-panel" role="dialog" aria-modal="true" aria-labelledby="wallpaper-library-title">
+        <aside class="wallpaper-sidebar" aria-label="壁纸来源">
+          <h2 id="wallpaper-library-title">壁纸库</h2>
+          <nav class="wallpaper-nav">
+            <button class="wallpaper-nav-item active" type="button" data-wallpaper-source="official"><span data-icon="image"></span><span>暮光系列</span></button>
+            <button class="wallpaper-nav-item" type="button" data-wallpaper-source="bing"><span class="wallpaper-source-mark bing-mark">B</span><span>必应壁纸</span></button>
+            <button class="wallpaper-nav-item" type="button" data-wallpaper-source="wallhaven"><span class="wallpaper-source-mark wallhaven-mark">W</span><span>Wallhaven</span></button>
+            <button class="wallpaper-nav-item" type="button" data-wallpaper-source="custom"><span data-icon="image"></span><span>自定义壁纸</span></button>
+            <button class="wallpaper-nav-item" type="button" data-wallpaper-source="favorites"><span data-icon="heart"></span><span>我的收藏</span></button>
+          </nav>
+        </aside>
+        <div class="wallpaper-content">
+          <header class="wallpaper-toolbar">
+            <div>
+              <h3 id="wallpaper-source-title">暮光系列</h3>
+              <p id="wallpaper-source-note">暮光起始页内置壁纸，可离线使用</p>
+            </div>
+            <button id="wallpaper-close" class="round-button wallpaper-close" type="button" aria-label="关闭壁纸库" data-icon="close"></button>
+          </header>
+          <div id="wallpaper-grid" class="wallpaper-grid" role="list"></div>
+          <div id="wallpaper-loading" class="wallpaper-message" hidden><span class="wallpaper-spinner"></span><span>正在加载壁纸…</span></div>
+          <div id="wallpaper-empty" class="wallpaper-message" hidden><span data-icon="image"></span><span>这里还没有壁纸</span></div>
+          <footer id="wallpaper-attribution" class="wallpaper-attribution"></footer>
+        </div>
+      </section>
+      <input id="background-upload" type="file" accept="image/jpeg,image/png,image/webp,image/avif" />
+    </div>
 
     <div id="form-layer" class="popover-layer" hidden>
       <section class="item-popover material-panel" role="dialog" aria-modal="true" aria-labelledby="form-title">

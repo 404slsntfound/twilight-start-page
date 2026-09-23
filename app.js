@@ -20,15 +20,41 @@ const ICONS = {
   copy: '<svg viewBox="0 0 24 24"><rect x="8" y="8" width="11" height="11" rx="2"></rect><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"></path></svg>',
   sort: '<svg viewBox="0 0 24 24"><path d="M7 4v16M4 7l3-3 3 3M14 7h6M14 12h5M14 17h3"></path></svg>',
   trash: '<svg viewBox="0 0 24 24"><path d="M5 7h14M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5"></path></svg>',
-  home: '<svg viewBox="0 0 24 24"><path d="m4 11 8-7 8 7v9h-6v-6h-4v6H4v-9Z"></path></svg>'
+  home: '<svg viewBox="0 0 24 24"><path d="m4 11 8-7 8 7v9h-6v-6h-4v6H4v-9Z"></path></svg>',
+  history: '<svg viewBox="0 0 24 24"><path d="M4 8V4m0 0h4M4.8 5.4A8 8 0 1 1 4 14"></path><path d="M12 7v5l3 2"></path></svg>',
+  heart: '<svg viewBox="0 0 24 24"><path d="M20.8 5.8a5.4 5.4 0 0 0-7.6 0L12 7l-1.2-1.2a5.4 5.4 0 0 0-7.6 7.6L12 22l8.8-8.6a5.4 5.4 0 0 0 0-7.6Z"></path></svg>'
 };
 
 const DEFAULT_STATE = {
-  version: 4,
-  background: { data: null, dim: 8, blur: 0 },
+  version: 7,
+  background: { id: "official-default", source: "official", title: "夕照海湾", asset: "assets/background.jpg", data: null, dim: 8, blur: 0 },
+  wallpaperRecent: [],
+  wallpaperFavorites: [],
+  showRecentlyOpened: true,
   items: SAFARI_IMPORTED_ITEMS
 };
 const CUSTOM_ICON_CROP_REVISION = 1;
+const OFFICIAL_WALLPAPERS = [
+  { id: "official-default", source: "official", title: "夕照海湾", type: "builtin", asset: "assets/background.jpg", thumb: "assets/background.jpg" },
+  { id: "official-cloud-tower-sky", source: "official", title: "云塔晴空", type: "builtin", asset: "assets/wallpapers/cloud-tower-sky.jpg", thumb: "assets/wallpapers/cloud-tower-sky.jpg" },
+  { id: "official-golden-fields-dawn", source: "official", title: "金野晨光", type: "builtin", asset: "assets/wallpapers/golden-fields-dawn.jpg", thumb: "assets/wallpapers/golden-fields-dawn.jpg" },
+  { id: "official-golden-beach-sunset", source: "official", title: "金滩晚霞", type: "builtin", asset: "assets/wallpapers/golden-beach-sunset.jpg", thumb: "assets/wallpapers/golden-beach-sunset.jpg" },
+  { id: "official-palm-coast-evening", source: "official", title: "椰岸晚街", type: "builtin", asset: "assets/wallpapers/palm-coast-evening.jpg", thumb: "assets/wallpapers/palm-coast-evening.jpg" },
+  { id: "official-golden-coast", source: "official", title: "金色海岸", type: "builtin", asset: "assets/wallpapers/golden-coast.jpg", thumb: "assets/wallpapers/golden-coast.jpg" },
+  { id: "official-purple-cloud-night", source: "official", title: "紫云夜幕", type: "builtin", asset: "assets/wallpapers/purple-cloud-night.jpg", thumb: "assets/wallpapers/purple-cloud-night.jpg" },
+  { id: "official-pink-cloud-sunset", source: "official", title: "粉云晚霞", type: "builtin", asset: "assets/wallpapers/pink-cloud-sunset.jpg", thumb: "assets/wallpapers/pink-cloud-sunset.jpg" },
+  { id: "official-twilight-palm-coast", source: "official", title: "暮海椰岸", type: "builtin", asset: "assets/wallpapers/twilight-palm-coast.jpg", thumb: "assets/wallpapers/twilight-palm-coast.jpg" },
+  { id: "official-morning-light-forest", source: "official", title: "晨光幻林", type: "builtin", asset: "assets/wallpapers/morning-light-forest.jpg", thumb: "assets/wallpapers/morning-light-forest.jpg" },
+  { id: "official-sunset-pink-clouds", source: "official", title: "晚霞粉云", type: "builtin", asset: "assets/wallpapers/sunset-pink-clouds.jpg", thumb: "assets/wallpapers/sunset-pink-clouds.jpg" },
+  { id: "official-night-clouds", source: "official", title: "夜色云团", type: "builtin", asset: "assets/wallpapers/night-clouds.jpg", thumb: "assets/wallpapers/night-clouds.jpg" }
+];
+const WALLPAPER_SOURCE_INFO = {
+  official: ["暮光系列", "暮光起始页内置壁纸，可离线使用"],
+  bing: ["必应壁纸", "来自 Microsoft Bing 多个地区的近期每日壁纸"],
+  wallhaven: ["Wallhaven", "来自 Wallhaven 最近一个月的公开高清热门壁纸，共加载三页"],
+  custom: ["自定义壁纸", "上传图片，并保留最近使用的 10 张壁纸"],
+  favorites: ["我的收藏", "收藏的暮光系列、必应、Wallhaven 或自定义壁纸"]
+};
 
 const els = {};
 const iconRequests = new Map();
@@ -49,6 +75,13 @@ let iconCacheTimer = null;
 let dragInfo = null;
 let dragPreview = null;
 let viewTimer = null;
+let recentEntries = [];
+let recentRefreshTimer = null;
+let recentTransitionTimer = null;
+let wallpaperSource = "official";
+let wallpaperVisible = [];
+let wallpaperRequestId = 0;
+const wallpaperSourceCache = new Map();
 
 document.addEventListener("DOMContentLoaded", init);
 
@@ -82,10 +115,13 @@ async function init() {
   }
   applyAppearance();
   renderView(false);
+  els.showRecent.checked = state.showRecentlyOpened;
+  await refreshRecentlyOpened();
+  bindHistoryEvents();
 }
 
 function cacheElements() {
-  ["wallpaper", "collection-view", "section-title", "collection-back", "collection-grid", "empty-state", "edit-toggle", "editor-panel", "editor-close", "add-bookmark-label", "background-upload", "background-reset", "background-preview", "import-data", "form-layer", "item-form", "form-title", "form-close", "form-cancel", "bookmark-fields", "group-fields", "item-title", "item-url", "item-parent", "group-name", "icon-layer", "icon-form-close", "icon-form-cancel", "icon-form-save", "icon-safari-preview", "icon-google-preview", "icon-custom-preview", "icon-upload", "address-popover", "address-input", "confirm-overlay", "confirm-title", "confirm-message", "confirm-cancel", "confirm-ok", "context-menu", "toast"].forEach(id => {
+  ["wallpaper", "collection-view", "section-title", "collection-back", "collection-grid", "empty-state", "recent-section", "recent-grid", "recent-empty", "edit-toggle", "editor-panel", "editor-close", "add-bookmark-label", "show-recent", "wallpaper-open", "wallpaper-layer", "wallpaper-close", "wallpaper-source-title", "wallpaper-source-note", "wallpaper-grid", "wallpaper-loading", "wallpaper-empty", "wallpaper-attribution", "background-upload", "background-reset", "background-preview", "import-data", "form-layer", "item-form", "form-title", "form-close", "form-cancel", "bookmark-fields", "group-fields", "item-title", "item-url", "item-parent", "group-name", "icon-layer", "icon-form-close", "icon-form-cancel", "icon-form-save", "icon-safari-preview", "icon-google-preview", "icon-custom-preview", "icon-upload", "address-popover", "address-input", "confirm-overlay", "confirm-title", "confirm-message", "confirm-cancel", "confirm-ok", "context-menu", "toast"].forEach(id => {
     els[toCamel(id)] = document.getElementById(id);
   });
 }
@@ -96,8 +132,13 @@ function bindEvents() {
   els.collectionGrid.addEventListener("contextmenu", handleContextMenu);
   els.editToggle.addEventListener("click", toggleEditor);
   els.editorClose.addEventListener("click", () => setEditor(false));
+  els.wallpaperOpen.addEventListener("click", () => openWallpaperLibrary("custom"));
+  els.wallpaperClose.addEventListener("click", closeWallpaperLibrary);
+  els.wallpaperLayer.addEventListener("mousedown", event => { if (event.target === els.wallpaperLayer) closeWallpaperLibrary(); });
+  els.wallpaperLayer.addEventListener("click", handleWallpaperLibraryClick);
   els.backgroundUpload.addEventListener("change", handleBackgroundUpload);
   els.backgroundReset.addEventListener("click", resetBackground);
+  els.showRecent.addEventListener("change", handleRecentVisibilityChange);
   els.importData.addEventListener("change", importData);
   els.formLayer.addEventListener("mousedown", event => { if (event.target === els.formLayer) closeForm(); });
   els.formClose.addEventListener("click", closeForm);
@@ -137,6 +178,7 @@ function renderView(animate = true, backwards = false) {
     els.collectionGrid.innerHTML = items.map(item => item.type === "group" ? groupMarkup(item) : bookmarkMarkup(item, currentGroup?.id || null)).join("");
     els.collectionGrid.hidden = items.length === 0;
     els.emptyState.hidden = items.length > 0;
+    updateRecentVisibility();
     injectIcons(els.collectionGrid);
     hydrateIcons(els.collectionGrid);
     els.collectionGrid.querySelectorAll(".favorite").forEach(card => { card.draggable = true; });
@@ -184,6 +226,114 @@ function hydrateIcons(root) {
     const item = findItem(img.dataset.itemId, img.dataset.parentId || null)?.item;
     loadSafariStyleIcon(img, img.dataset.siteUrl, item);
   });
+}
+
+function bindHistoryEvents() {
+  if (!globalThis.chrome?.history) return;
+  const schedule = () => {
+    clearTimeout(recentRefreshTimer);
+    recentRefreshTimer = setTimeout(refreshRecentlyOpened, 250);
+  };
+  chrome.history.onVisited?.addListener(schedule);
+  chrome.history.onVisitRemoved?.addListener(schedule);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) schedule(); });
+}
+
+async function refreshRecentlyOpened(animateVisibility = false) {
+  if (!state.showRecentlyOpened || !globalThis.chrome?.history?.search) {
+    recentEntries = [];
+    renderRecentlyOpened();
+    updateRecentVisibility(animateVisibility);
+    return;
+  }
+  try {
+    const results = await new Promise((resolve, reject) => {
+      chrome.history.search({ text: "", startTime: Date.now() - 90 * 864e5, maxResults: 160 }, items => {
+        const error = chrome.runtime?.lastError;
+        if (error) reject(new Error(error.message));
+        else resolve(items || []);
+      });
+    });
+    const seen = new Set();
+    recentEntries = results
+      .filter(item => isValidWebUrl(item.url))
+      .sort((a, b) => Number(b.lastVisitTime || 0) - Number(a.lastVisitTime || 0))
+      .filter(item => {
+        const key = canonicalBookmarkUrl(item.url);
+        if (!key || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .slice(0, 8)
+      .map(item => ({
+        title: String(item.title || historyHostname(item.url)).trim() || historyHostname(item.url),
+        url: item.url,
+        hostname: historyHostname(item.url)
+      }));
+  } catch (error) {
+    console.warn("Unable to load recent history", error);
+    recentEntries = [];
+  }
+  renderRecentlyOpened();
+  updateRecentVisibility(animateVisibility);
+}
+
+function renderRecentlyOpened() {
+  if (!els.recentGrid) return;
+  els.recentGrid.innerHTML = recentEntries.map((item, index) => {
+    const [a, b] = colorsFor(item.url);
+    return `<a class="recent-card" role="listitem" href="${escapeAttr(item.url)}" title="${escapeAttr(item.title)}">
+      <span class="recent-icon site-tile" style="--tone-a:${a};--tone-b:${b}">
+        <img class="site-image" alt="" data-recent-index="${index}" data-site-url="${escapeAttr(item.url)}">
+        <span class="monogram">${escapeHtml(firstGlyph(item.title))}</span>
+      </span>
+      <span class="recent-copy">
+        <strong>${escapeHtml(item.title)}</strong>
+        <small>${escapeHtml(item.hostname)}</small>
+      </span>
+    </a>`;
+  }).join("");
+  els.recentEmpty.hidden = recentEntries.length > 0;
+  els.recentGrid.hidden = recentEntries.length === 0;
+  els.recentGrid.querySelectorAll("img[data-site-url]").forEach(img => loadSafariStyleIcon(img, img.dataset.siteUrl));
+}
+
+function updateRecentVisibility(animate = false) {
+  if (!els.recentSection) return;
+  const visible = !activeGroupId && state.showRecentlyOpened;
+  clearTimeout(recentTransitionTimer);
+  els.recentSection.classList.remove("recent-enter", "recent-leave");
+  if (visible) {
+    els.recentSection.hidden = false;
+    if (!animate) return;
+    void els.recentSection.offsetWidth;
+    els.recentSection.classList.add("recent-enter");
+    recentTransitionTimer = setTimeout(() => els.recentSection.classList.remove("recent-enter"), 300);
+    return;
+  }
+  if (!animate || els.recentSection.hidden) {
+    els.recentSection.hidden = true;
+    return;
+  }
+  void els.recentSection.offsetWidth;
+  els.recentSection.classList.add("recent-leave");
+  recentTransitionTimer = setTimeout(() => {
+    els.recentSection.hidden = true;
+    els.recentSection.classList.remove("recent-leave");
+  }, 230);
+}
+
+async function handleRecentVisibilityChange() {
+  state.showRecentlyOpened = els.showRecent.checked;
+  await persist();
+  if (state.showRecentlyOpened) await refreshRecentlyOpened(true);
+  else updateRecentVisibility(true);
+  showToast(state.showRecentlyOpened ? "已显示最近打开" : "已隐藏最近打开");
+}
+
+function historyHostname(value) {
+  try { return new URL(value).hostname.replace(/^www\./, ""); }
+  catch { return "网页"; }
 }
 
 function loadSafariStyleIcon(img, pageUrl, item = null) {
@@ -781,6 +931,7 @@ function handleDocumentPointer(event) {
 
 function handleKeydown(event) {
   if (event.key !== "Escape") return;
+  if (!els.wallpaperLayer.hidden) return closeWallpaperLibrary();
   if (!els.contextMenu.hidden) return hideContextMenu();
   if (!els.iconLayer.hidden) return closeIconEditor();
   if (!els.addressPopover.hidden) return closeAddressPopover();
@@ -977,16 +1128,267 @@ function reorderWithin(parentId, sourceId, targetId) {
   container.splice(targetIndex, 0, item);
 }
 
+function openWallpaperLibrary(source = "official") {
+  setEditor(false);
+  els.wallpaperLayer.hidden = false;
+  document.body.classList.add("wallpaper-library-open");
+  showWallpaperSource(source);
+  requestAnimationFrame(() => els.wallpaperClose.focus());
+}
+
+function closeWallpaperLibrary() {
+  els.wallpaperLayer.hidden = true;
+  document.body.classList.remove("wallpaper-library-open");
+  wallpaperRequestId += 1;
+}
+
+function handleWallpaperLibraryClick(event) {
+  const sourceButton = event.target.closest("[data-wallpaper-source]");
+  if (sourceButton) return showWallpaperSource(sourceButton.dataset.wallpaperSource);
+  if (event.target.closest("[data-wallpaper-upload]")) return els.backgroundUpload.click();
+  const favoriteButton = event.target.closest("[data-wallpaper-favorite]");
+  if (favoriteButton) return toggleWallpaperFavorite(favoriteButton.dataset.wallpaperFavorite);
+  const selectButton = event.target.closest("[data-wallpaper-select]");
+  if (selectButton) {
+    const wallpaper = wallpaperVisible.find(item => item.id === selectButton.dataset.wallpaperSelect);
+    if (wallpaper) useWallpaper(wallpaper);
+  }
+}
+
+async function showWallpaperSource(source) {
+  if (!WALLPAPER_SOURCE_INFO[source]) source = "official";
+  wallpaperSource = source;
+  const requestId = ++wallpaperRequestId;
+  els.wallpaperLayer.querySelectorAll("[data-wallpaper-source]").forEach(button => {
+    const active = button.dataset.wallpaperSource === source;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-current", active ? "page" : "false");
+  });
+  const [title, note] = WALLPAPER_SOURCE_INFO[source];
+  els.wallpaperSourceTitle.textContent = title;
+  els.wallpaperSourceNote.textContent = note;
+  els.wallpaperGrid.innerHTML = "";
+  els.wallpaperEmpty.hidden = true;
+  els.wallpaperLoading.hidden = !["bing", "wallhaven"].includes(source);
+  updateWallpaperAttribution(source);
+
+  if (source === "official") wallpaperVisible = OFFICIAL_WALLPAPERS;
+  else if (source === "custom") wallpaperVisible = state.wallpaperRecent || [];
+  else if (source === "favorites") wallpaperVisible = state.wallpaperFavorites || [];
+  else {
+    try {
+      wallpaperVisible = wallpaperSourceCache.get(source) || await (source === "bing" ? fetchBingWallpapers() : fetchWallhavenWallpapers());
+      wallpaperSourceCache.set(source, wallpaperVisible);
+    } catch (error) {
+      console.warn(`Unable to load ${source} wallpapers`, error);
+      wallpaperVisible = [];
+      if (requestId === wallpaperRequestId) showToast(source === "bing" ? "必应壁纸暂时无法加载" : "Wallhaven 暂时无法加载");
+    }
+  }
+  if (requestId !== wallpaperRequestId || source !== wallpaperSource) return;
+  els.wallpaperLoading.hidden = true;
+  renderWallpaperGrid();
+}
+
+function renderWallpaperGrid() {
+  const upload = wallpaperSource === "custom" ? `
+    <article class="wallpaper-card wallpaper-upload-card" role="listitem">
+      <button type="button" data-wallpaper-upload aria-label="上传自定义壁纸"><span data-icon="plus"></span><strong>上传壁纸</strong><small>JPEG、PNG、WebP 或 AVIF</small></button>
+    </article>` : "";
+  els.wallpaperGrid.innerHTML = upload + wallpaperVisible.map(wallpaperCardMarkup).join("");
+  const isEmpty = wallpaperVisible.length === 0 && wallpaperSource !== "custom";
+  els.wallpaperEmpty.hidden = !isEmpty;
+  injectIcons(els.wallpaperGrid);
+}
+
+function wallpaperCardMarkup(item) {
+  const thumb = item.thumb || item.data || "assets/background.jpg";
+  const selected = state.background?.id === item.id;
+  const favorite = isWallpaperFavorite(item.id);
+  const detail = item.source === "bing" ? "Bing" : item.source === "wallhaven" ? "Wallhaven" : item.source === "custom" ? "自定义" : "暮光系列";
+  return `<article class="wallpaper-card${selected ? " selected" : ""}" role="listitem">
+    <button class="wallpaper-card-main" type="button" data-wallpaper-select="${escapeAttr(item.id)}" aria-label="使用 ${escapeAttr(item.title)}">
+      <img src="${escapeAttr(thumb)}" alt="" loading="lazy">
+      <span class="wallpaper-selected-mark">✓</span>
+      <span class="wallpaper-card-copy"><strong title="${escapeAttr(item.title)}">${escapeHtml(item.title)}</strong><small>${detail}</small></span>
+    </button>
+    <button class="wallpaper-favorite${favorite ? " active" : ""}" type="button" data-wallpaper-favorite="${escapeAttr(item.id)}" aria-label="${favorite ? "取消收藏" : "收藏"} ${escapeAttr(item.title)}" aria-pressed="${favorite}"><span data-icon="heart"></span></button>
+  </article>`;
+}
+
+function updateWallpaperAttribution(source) {
+  els.wallpaperAttribution.replaceChildren();
+  const labels = {
+    official: "暮光系列保存在扩展中，可离线使用。",
+    custom: "自定义壁纸只保存在本机，最近使用最多保留 10 张。",
+    favorites: "收藏列表只保存在本机。"
+  };
+  if (labels[source]) {
+    els.wallpaperAttribution.textContent = labels[source];
+    return;
+  }
+  const link = document.createElement("a");
+  link.target = "_blank";
+  link.rel = "noopener noreferrer";
+  if (source === "bing") {
+    els.wallpaperAttribution.append("壁纸来源：");
+    link.href = "https://www.bing.com/";
+    link.textContent = "Microsoft Bing";
+  } else {
+    els.wallpaperAttribution.append("壁纸来源：");
+    link.href = "https://wallhaven.cc/";
+    link.textContent = "Wallhaven";
+  }
+  els.wallpaperAttribution.append(link);
+}
+
+async function fetchBingWallpapers() {
+  const markets = ["zh-CN", "en-US", "ja-JP", "en-GB", "de-DE"];
+  const requests = markets.flatMap(market => [0, 7].map(async index => {
+    const endpoint = `https://global.bing.com/HPImageArchive.aspx?format=js&idx=${index}&n=8&mkt=${market}`;
+    const response = await fetch(endpoint, { cache: "no-store" });
+    if (!response.ok) throw new Error(`Bing ${response.status}`);
+    return response.json();
+  }));
+  const pages = await Promise.allSettled(requests);
+  const images = pages.flatMap(result => result.status === "fulfilled" ? (result.value.images || []) : []);
+  if (!images.length) throw new Error("Bing returned no images");
+  const seen = new Set();
+  return images.flatMap((image, index) => {
+    const base = image.urlbase || String(image.url || "").replace(/_[^/_]+\.jpg.*$/i, "");
+    if (!base || seen.has(base)) return [];
+    seen.add(base);
+    const title = String(image.title || image.copyright || `必应每日壁纸 ${index + 1}`).split(" (©")[0].trim();
+    const identity = base.match(/[?&]id=([^&]+)/i)?.[1] || `${image.startdate || "image"}-${index}`;
+    return [{
+      id: `bing-${identity}`,
+      source: "bing",
+      title,
+      thumb: `https://www.bing.com${base}_640x360.jpg`,
+      imageUrl: `https://www.bing.com${base}_1920x1080.jpg`,
+      attribution: image.copyright || "Microsoft Bing"
+    }];
+  }).filter(item => isWebUrl(item.imageUrl));
+}
+
+async function fetchWallhavenWallpapers() {
+  const requests = [1, 2, 3].map(async page => {
+    const endpoint = `https://wallhaven.cc/api/v1/search?categories=111&purity=110&sorting=toplist&topRange=1M&atleast=1920x1080&ratios=landscape&page=${page}`;
+    const response = await fetch(endpoint, { cache: "no-store" });
+    if (!response.ok) throw new Error(`Wallhaven ${response.status}`);
+    return response.json();
+  });
+  const pages = await Promise.allSettled(requests);
+  const items = pages.flatMap(result => result.status === "fulfilled" ? (result.value.data || []) : []);
+  if (!items.length) throw new Error("Wallhaven returned no images");
+  const seen = new Set();
+  return items.filter(item => {
+    if (!item?.id || seen.has(item.id)) return false;
+    seen.add(item.id);
+    return true;
+  }).map(item => ({
+    id: `wallhaven-${item.id}`,
+    source: "wallhaven",
+    title: `Wallhaven ${String(item.id || "").toUpperCase()}`,
+    thumb: item.thumbs?.large || item.thumbs?.original || item.path,
+    imageUrl: item.path,
+    attribution: item.short_url || `https://wallhaven.cc/w/${item.id}`
+  })).filter(item => isWebUrl(item.thumb) && isWebUrl(item.imageUrl));
+}
+
+async function useWallpaper(item) {
+  try {
+    const builtInAsset = item.source === "official" && /^assets\//.test(item.asset || "") ? item.asset : null;
+    let data = item.data || null;
+    if (!builtInAsset && item.type !== "default" && !isImageData(data)) {
+      showToast("正在下载并优化壁纸…");
+      const response = await fetch(item.imageUrl, { cache: "force-cache" });
+      if (!response.ok) throw new Error(`Image ${response.status}`);
+      const blob = await response.blob();
+      if (!blob.type.startsWith("image/")) throw new Error("Not an image");
+      data = await compressImage(blob);
+    }
+    state.background = {
+      id: item.id,
+      source: item.source,
+      title: item.title,
+      asset: builtInAsset,
+      data: builtInAsset || item.type === "default" ? null : data,
+      dim: builtInAsset || item.type === "default" ? DEFAULT_STATE.background.dim : 6,
+      blur: 0
+    };
+    if (item.source === "custom") moveCustomWallpaperToFront(item.id);
+    await persist();
+    applyAppearance();
+    if (!els.wallpaperLayer.hidden) showWallpaperSource(wallpaperSource);
+    showToast(`已切换到“${item.title}”`);
+  } catch (error) {
+    console.error(error);
+    showToast("壁纸下载失败，请稍后重试");
+  }
+}
+
+function moveCustomWallpaperToFront(id) {
+  const recent = state.wallpaperRecent || [];
+  const index = recent.findIndex(item => item.id === id);
+  if (index <= 0) return;
+  const [item] = recent.splice(index, 1);
+  recent.unshift(item);
+}
+
+async function toggleWallpaperFavorite(id) {
+  const item = wallpaperVisible.find(wallpaper => wallpaper.id === id);
+  if (!item) return;
+  state.wallpaperFavorites ||= [];
+  const index = state.wallpaperFavorites.findIndex(wallpaper => wallpaper.id === id);
+  const added = index < 0;
+  if (added) state.wallpaperFavorites.unshift(wallpaperRecord(item));
+  else state.wallpaperFavorites.splice(index, 1);
+  await persist();
+  if (wallpaperSource === "favorites") wallpaperVisible = state.wallpaperFavorites;
+  renderWallpaperGrid();
+  showToast(added ? "已加入我的收藏" : "已取消收藏");
+}
+
+function isWallpaperFavorite(id) {
+  return (state.wallpaperFavorites || []).some(item => item.id === id);
+}
+
+function wallpaperRecord(item) {
+  return {
+    id: String(item.id),
+    source: ["official", "bing", "wallhaven", "custom"].includes(item.source) ? item.source : "custom",
+    title: String(item.title || "未命名壁纸").slice(0, 160),
+    type: item.type === "default" ? "default" : item.type === "builtin" ? "builtin" : "image",
+    asset: /^assets\//.test(item.asset || "") ? item.asset : null,
+    thumb: isImageData(item.thumb) || isWebUrl(item.thumb) || /^assets\//.test(item.thumb || "") ? item.thumb : null,
+    imageUrl: isWebUrl(item.imageUrl) ? item.imageUrl : null,
+    data: isImageData(item.data) ? item.data : null,
+    attribution: String(item.attribution || "").slice(0, 300)
+  };
+}
+
 async function handleBackgroundUpload(event) {
   const file = event.target.files?.[0];
   event.target.value = "";
   if (!file || !file.type.startsWith("image/")) return;
   try {
     showToast("正在处理背景…");
-    state.background.data = await compressImage(file);
-    state.background.dim = 6;
+    const data = await compressImage(file);
+    const wallpaper = {
+      id: uid("wallpaper"),
+      source: "custom",
+      title: file.name.replace(/\.[^.]+$/, "").trim().slice(0, 120) || "自定义壁纸",
+      type: "image",
+      thumb: data,
+      data,
+      addedAt: Date.now()
+    };
+    state.wallpaperRecent = [wallpaperRecord(wallpaper), ...(state.wallpaperRecent || []).filter(item => item.data !== data)].slice(0, 10);
+    state.background = { id: wallpaper.id, source: "custom", title: wallpaper.title, data, dim: 6, blur: 0 };
     await persist();
     applyAppearance();
+    if (!els.wallpaperLayer.hidden) await showWallpaperSource("custom");
     showToast("背景已更新");
   } catch (error) {
     console.error(error);
@@ -1200,9 +1602,10 @@ function applyAppearance() {
   const background = state.background || DEFAULT_STATE.background;
   document.documentElement.style.setProperty("--dim", String((background.dim ?? 8) / 100));
   document.documentElement.style.setProperty("--wallpaper-blur", `${background.blur ?? 0}px`);
-  const imageValue = background.data ? `url("${background.data}")` : "";
+  const imageSource = background.data || (/^assets\//.test(background.asset || "") ? background.asset : "assets/background.jpg");
+  const imageValue = `url("${imageSource}")`;
   els.wallpaper.style.backgroundImage = imageValue;
-  els.backgroundPreview.style.backgroundImage = background.data ? imageValue : "";
+  els.backgroundPreview.style.backgroundImage = imageValue;
 }
 
 async function refreshIcons() {
@@ -1210,6 +1613,7 @@ async function refreshIcons() {
   iconRequests.clear();
   await storageSet("safariIconCache", iconCache);
   renderView(false);
+  renderRecentlyOpened();
   showToast("已清除网站图标缓存并重新获取，自定义图标已保留");
 }
 
@@ -1235,7 +1639,7 @@ async function importData(event) {
     const items = parseBookmarkHtml(await file.text());
     if (!items.length) throw new Error("没有找到可导入的书签");
     const result = mergeImportedItems(state.items, items);
-    state = { ...state, version: 4, items: result.items };
+    state = { ...state, version: 5, items: result.items };
     migrateAndCleanState();
     activeGroupId = null;
     await persist();
@@ -1396,7 +1800,9 @@ async function resetAll() {
   activeGroupId = null;
   await Promise.all([persist(), storageSet("safariIconCache", iconCache)]);
   applyAppearance();
+  els.showRecent.checked = state.showRecentlyOpened;
   renderView(false);
+  await refreshRecentlyOpened();
   showToast("已清空全部书签并恢复初始设置");
 }
 
@@ -1438,11 +1844,25 @@ function migrateAndCleanState() {
     const iconMode = item.iconMode === "custom" && customIcon ? "custom" : item.iconMode === "google" ? "google" : "safari";
     return { id: safeId(item.id, "bookmark"), type: "bookmark", title: String(item.title || fallbackTitle).trim().slice(0, 200) || fallbackTitle, url, iconMode, customIcon };
   };
-  state.background = { ...DEFAULT_STATE.background, ...(state.background || {}) };
+  const previousBackground = state.background || {};
+  state.background = { ...DEFAULT_STATE.background, ...previousBackground };
+  state.showRecentlyOpened = state.showRecentlyOpened !== false;
   if (previousVersion < 2 && !state.background.data && Number(state.background.dim) === 22) state.background.dim = 8;
   if (state.background.data && !String(state.background.data).startsWith("data:image/")) state.background.data = null;
+  if (state.background.data && !previousBackground.id) {
+    state.background.id = "legacy-custom-background";
+    state.background.source = "custom";
+    state.background.title = "原自定义壁纸";
+  }
+  if (!/^assets\//.test(state.background.asset || "") || state.background.source !== "official") state.background.asset = null;
   state.background.dim = Math.max(0, Math.min(55, Number(state.background.dim) || 0));
   state.background.blur = Math.max(0, Math.min(12, Number(state.background.blur) || 0));
+  state.wallpaperRecent = (Array.isArray(state.wallpaperRecent) ? state.wallpaperRecent : []).map(cleanSavedWallpaper).filter(Boolean).slice(0, 10);
+  if (state.background.data && state.background.source === "custom" && !state.wallpaperRecent.some(item => item.id === state.background.id)) {
+    state.wallpaperRecent.unshift(wallpaperRecord({ ...state.background, type: "image", thumb: state.background.data }));
+    state.wallpaperRecent = state.wallpaperRecent.slice(0, 10);
+  }
+  state.wallpaperFavorites = (Array.isArray(state.wallpaperFavorites) ? state.wallpaperFavorites : []).map(cleanSavedWallpaper).filter(Boolean).slice(0, 100);
   state.items = (state.items || []).flatMap(item => {
     if (!item) return [];
     if (item.type === "group") {
@@ -1453,7 +1873,17 @@ function migrateAndCleanState() {
     const bookmark = cleanBookmark(item);
     return bookmark ? [bookmark] : [];
   });
-  state.version = 4;
+  state.version = 7;
+}
+
+function cleanSavedWallpaper(item) {
+  if (!item || !item.id) return null;
+  const official = item.source === "official" ? OFFICIAL_WALLPAPERS.find(wallpaper => wallpaper.id === item.id) : null;
+  const record = wallpaperRecord(official ? { ...item, ...official } : item);
+  if (record.type === "default" || record.type === "builtin") return record;
+  if (!record.data && !record.imageUrl) return null;
+  record.thumb ||= record.data || record.imageUrl;
+  return record;
 }
 
 async function persist() {
