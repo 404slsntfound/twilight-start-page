@@ -74,6 +74,8 @@ let toastTimer = null;
 let iconCacheTimer = null;
 let dragInfo = null;
 let dragPreview = null;
+let pendingDrag = null;
+let suppressGridClickUntil = 0;
 let viewTimer = null;
 let recentEntries = [];
 let recentRefreshTimer = null;
@@ -181,7 +183,7 @@ function renderView(animate = true, backwards = false) {
     updateRecentVisibility();
     injectIcons(els.collectionGrid);
     hydrateIcons(els.collectionGrid);
-    els.collectionGrid.querySelectorAll(".favorite").forEach(card => { card.draggable = true; });
+    els.collectionGrid.querySelectorAll(".favorite").forEach(card => { card.draggable = false; });
     if (animate) {
       els.collectionView.classList.remove("view-out");
       els.collectionView.classList.add("view-in");
@@ -533,6 +535,7 @@ function scheduleIconCacheSave() {
 }
 
 function handleGridClick(event) {
+  if (performance.now() < suppressGridClickUntil) return;
   if (event.target.closest(".name-editor")) return;
   const favorite = event.target.closest(".favorite");
   if (!favorite) return;
@@ -942,40 +945,147 @@ function handleKeydown(event) {
 
 function bindDragEvents() {
   const grid = els.collectionGrid;
-  grid.addEventListener("dragstart", event => {
+  grid.addEventListener("pointerdown", event => {
+    if (event.button !== 0 || event.pointerType === "touch" && !event.isPrimary) return;
     const card = event.target.closest(".favorite");
-    if (!card || event.target.closest("input")) return event.preventDefault();
-    dragInfo = { id: card.dataset.id, parentId: activeGroupId };
-    dragPreview?.remove();
-    dragPreview = createDragPreview(card);
-    document.body.appendChild(dragPreview);
-    event.dataTransfer.setDragImage(dragPreview, 50, 42);
-    card.classList.add("dragging");
-    document.body.classList.add("drag-active");
-    event.dataTransfer.effectAllowed = "move";
-    event.dataTransfer.setData("text/plain", card.dataset.id);
+    if (!card || event.target.closest("input,.name-editor")) return;
+    pendingDrag = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      card,
+      id: card.dataset.id,
+      parentId: activeGroupId,
+      moved: false,
+      started: false
+    };
   });
-  grid.addEventListener("dragover", event => {
-    if (!dragInfo) return;
-    const card = event.target.closest(".favorite");
-    grid.querySelectorAll(".drop-target").forEach(el => el.classList.remove("drop-target"));
-    if (!card) return;
+  document.addEventListener("pointermove", event => {
+    if (!pendingDrag || event.pointerId !== pendingDrag.pointerId) return;
+    const distance = Math.hypot(event.clientX - pendingDrag.startX, event.clientY - pendingDrag.startY);
+    if (!pendingDrag.started && distance < 8) return;
+    if (!pendingDrag.started) beginPointerDrag(pendingDrag, event);
     event.preventDefault();
-    event.dataTransfer.dropEffect = "move";
-    card.classList.add("drop-target");
+    positionDragPreview(event.clientX, event.clientY);
+    const target = findPointerDropTarget(event.clientX, event.clientY, pendingDrag.card);
+    if (target) pendingDrag.moved = moveDragPlaceholder(pendingDrag.card, target) || pendingDrag.moved;
+  }, { passive: false });
+  document.addEventListener("pointerup", event => finishPointerDrag(event));
+  document.addEventListener("pointercancel", cancelPointerDrag);
+  window.addEventListener("blur", cancelPointerDrag);
+  grid.addEventListener("dragstart", cancelNativeDrag);
+}
+
+function beginPointerDrag(pending, event) {
+  pending.started = true;
+  dragInfo = { id: pending.id, parentId: pending.parentId };
+  suppressGridClickUntil = performance.now() + 500;
+  hideContextMenu();
+  closeAddressPopover();
+  setEditor(false);
+  pending.card.classList.add("dragging");
+  document.body.classList.add("drag-active");
+  dragPreview?.remove();
+  dragPreview = createDragPreview(pending.card);
+  document.body.appendChild(dragPreview);
+  positionDragPreview(event.clientX, event.clientY);
+}
+
+function positionDragPreview(clientX, clientY) {
+  if (!dragPreview) return;
+  dragPreview.style.setProperty("--drag-preview-left", `${clientX - 50}px`);
+  dragPreview.style.setProperty("--drag-preview-top", `${clientY - 42}px`);
+}
+
+function findPointerDropTarget(clientX, clientY, sourceCard) {
+  const placeholder = sourceCard.getBoundingClientRect();
+  if (clientX >= placeholder.left && clientX <= placeholder.right && clientY >= placeholder.top && clientY <= placeholder.bottom) return null;
+  const direct = document.elementFromPoint(clientX, clientY)?.closest(".favorite");
+  if (direct && direct !== sourceCard && els.collectionGrid.contains(direct)) return direct;
+  const gridRect = els.collectionGrid.getBoundingClientRect();
+  if (clientX < gridRect.left || clientX > gridRect.right || clientY < gridRect.top || clientY > gridRect.bottom) return null;
+  let nearest = null;
+  let nearestDistance = 86;
+  els.collectionGrid.querySelectorAll(".favorite").forEach(card => {
+    if (card === sourceCard) return;
+    const rect = card.getBoundingClientRect();
+    const distance = Math.hypot(clientX - (rect.left + rect.width / 2), clientY - (rect.top + rect.height / 2));
+    if (distance < nearestDistance) {
+      nearest = card;
+      nearestDistance = distance;
+    }
   });
-  grid.addEventListener("drop", async event => {
-    event.preventDefault();
-    const target = event.target.closest(".favorite");
-    if (!target || !dragInfo || dragInfo.parentId !== activeGroupId) return;
-    reorderWithin(activeGroupId, dragInfo.id, target.dataset.id);
-    clearDragAppearance(grid);
-    await persist();
+  return nearest;
+}
+
+function moveDragPlaceholder(sourceCard, targetCard) {
+  const cards = Array.from(els.collectionGrid.querySelectorAll(".favorite"));
+  const sourceIndex = cards.indexOf(sourceCard);
+  const targetIndex = cards.indexOf(targetCard);
+  if (sourceIndex < 0 || targetIndex < 0 || sourceIndex === targetIndex) return false;
+  const visibleCards = cards.filter(card => card !== sourceCard);
+  // Read the cards at their current painted positions before interrupting an
+  // earlier move. This keeps consecutive reorders continuous instead of
+  // snapping each card to its layout position between animations.
+  const before = new Map(visibleCards.map(card => [card, card.getBoundingClientRect()]));
+  visibleCards.forEach(card => card.getAnimations().forEach(animation => animation.cancel()));
+  if (sourceIndex < targetIndex) targetCard.after(sourceCard);
+  else targetCard.before(sourceCard);
+  const nextCards = Array.from(els.collectionGrid.querySelectorAll(".favorite"));
+  if (nextCards.indexOf(sourceCard) === sourceIndex) return false;
+  nextCards.forEach(card => {
+    if (card === sourceCard) return;
+    const first = before.get(card);
+    if (!first) return;
+    const last = card.getBoundingClientRect();
+    const x = first.left - last.left;
+    const y = first.top - last.top;
+    if (Math.abs(x) < .5 && Math.abs(y) < .5) return;
+    const animation = card.animate([
+      { transform: `translate(${x}px, ${y}px)` },
+      { transform: "translate(0, 0)" }
+    ], {
+      duration: 240,
+      easing: "cubic-bezier(.22,.78,.22,1)",
+      fill: "both"
+    });
+    animation.addEventListener("finish", () => animation.cancel(), { once: true });
+  });
+  return true;
+}
+
+async function finishPointerDrag(event) {
+  if (!pendingDrag || event.pointerId !== pendingDrag.pointerId) return;
+  const completed = pendingDrag;
+  pendingDrag = null;
+  if (!completed.started) return;
+  event.preventDefault();
+  const parentId = completed.parentId;
+  const orderedIds = Array.from(els.collectionGrid.querySelectorAll(".favorite"), card => card.dataset.id);
+  clearDragAppearance();
+  suppressGridClickUntil = performance.now() + 500;
+  if (!completed.moved || parentId !== activeGroupId) return;
+  if (!syncContainerOrder(parentId, orderedIds)) return renderView(false);
+  await persist();
+  renderView(false);
+  showToast("已调整位置");
+}
+
+function cancelPointerDrag() {
+  if (!pendingDrag) return;
+  const started = pendingDrag.started;
+  pendingDrag = null;
+  if (started) {
+    suppressGridClickUntil = performance.now() + 300;
+    clearDragAppearance();
     renderView(false);
-  });
-  grid.addEventListener("dragend", () => {
-    clearDragAppearance(grid);
-  });
+  }
+}
+
+/* Native drag events are cancelled so images and buttons cannot start a second,
+   competing drag operation while the pointer implementation is active. */
+function cancelNativeDrag(event) {
+  event.preventDefault();
 }
 
 function createDragPreview(card) {
@@ -1118,14 +1228,14 @@ function clearDragAppearance(grid = els.collectionGrid) {
   document.body.classList.remove("drag-active");
 }
 
-function reorderWithin(parentId, sourceId, targetId) {
-  if (sourceId === targetId) return;
+function syncContainerOrder(parentId, orderedIds) {
   const container = getContainer(parentId);
-  const sourceIndex = container.findIndex(item => item.id === sourceId);
-  const targetIndex = container.findIndex(item => item.id === targetId);
-  if (sourceIndex < 0 || targetIndex < 0) return;
-  const [item] = container.splice(sourceIndex, 1);
-  container.splice(targetIndex, 0, item);
+  if (orderedIds.length !== container.length || new Set(orderedIds).size !== container.length) return false;
+  const byId = new Map(container.map(item => [item.id, item]));
+  const ordered = orderedIds.map(id => byId.get(id));
+  if (ordered.some(item => !item)) return false;
+  container.splice(0, container.length, ...ordered);
+  return true;
 }
 
 function openWallpaperLibrary(source = "official") {

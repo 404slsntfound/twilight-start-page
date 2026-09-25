@@ -52,7 +52,7 @@ svg { display:block; width:100%; height:100%; fill:none; stroke:currentColor; st
 .collection-back:hover { transform:scale(1.06); background:#fff; }
 
 .collection-grid { display:grid; grid-template-columns:repeat(auto-fill, var(--tile)); column-gap:var(--gap-x); row-gap:var(--gap-y); align-items:start; }
-.favorite { position:relative; width:var(--tile); min-height:101px; user-select:none; }
+.favorite { position:relative; width:var(--tile); min-height:101px; user-select:none; will-change:transform; }
 .favorite-button { width:var(--tile); min-height:101px; padding:0; border:0; outline:0; background:transparent; cursor:pointer; color:inherit; }
 .tile {
   width:var(--tile);
@@ -93,10 +93,9 @@ svg { display:block; width:100%; height:100%; fill:none; stroke:currentColor; st
   text-shadow:0 1px 3px rgba(0,0,0,.95), 0 2px 10px rgba(0,0,0,.66);
 }
 .name-editor { width:90px; height:21px; margin:6px 0 0 -9px; padding:0 3px; border:1px solid rgba(74,155,255,.95); border-radius:3px; outline:0; background:rgba(245,248,252,.9); color:#152030; font-size:12px; text-align:center; box-shadow:0 0 0 2px rgba(44,130,246,.28); }
-.dragging { opacity:0 !important; }
-.drop-target:not(.dragging) .tile { transform:scale(1.035); filter:brightness(1.08); }
-canvas.drag-preview { position:fixed !important; left:-240px !important; top:-240px !important; z-index:9999; opacity:1 !important; pointer-events:none !important; }
-body.drag-active, body.drag-active * { cursor:grabbing !important; }
+.dragging { opacity:0 !important; pointer-events:none !important; }
+canvas.drag-preview { position:fixed !important; left:var(--drag-preview-left,-240px) !important; top:var(--drag-preview-top,-240px) !important; z-index:9999; opacity:1 !important; pointer-events:none !important; }
+body.drag-active, body.drag-active * { cursor:grabbing !important; user-select:none !important; -webkit-user-select:none !important; }
 
 .folder-tile { padding:8px; background:linear-gradient(145deg,var(--folder-a),var(--folder-b)); }
 .folder-preview { width:100%; height:100%; position:relative; z-index:1; display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); grid-template-rows:repeat(3,minmax(0,1fr)); gap:3px; }
